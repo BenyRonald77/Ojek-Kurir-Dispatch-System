@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite tidak mendukung enum native Prisma, jadi field seperti "role" dan
+// "status" disimpan sebagai String dan divalidasi lewat union type
+// TypeScript (lihat src/lib/types.ts).
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String
+  createdAt    DateTime @default(now())
+
+  driverProfile DriverProfile?
+  orders        Order[]
+}
+
+model DriverProfile {
+  userId      String  @id
+  user        User    @relation(fields: [userId], references: [id])
+  vehicleType String
+  isOnline    Boolean @default(false)
+  isAvailable Boolean @default(false)
+  lastLat     Float?
+  lastLng     Float?
+  updatedAt   DateTime @updatedAt
+
+  offers OrderOffer[]
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  customerId       String
+  customer         User      @relation(fields: [customerId], references: [id])
+  pickupLat        Float
+  pickupLng        Float
+  dropoffLat       Float
+  dropoffLng       Float
+  status           String    @default("PENDING")
+  assignedDriverId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  offers OrderOffer[]
+
+  @@index([status])
+}
+
+model OrderOffer {
+  id         String    @id @default(cuid())
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driverId   String
+  driver     DriverProfile @relation(fields: [driverId], references: [userId])
+  status     String    @default("PENDING")
+  offeredAt  DateTime  @default(now())
+  respondedAt DateTime?
+
+  @@index([orderId])
+  @@index([driverId])
+}
